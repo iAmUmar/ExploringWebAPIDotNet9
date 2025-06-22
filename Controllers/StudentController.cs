@@ -1,35 +1,31 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using System.Threading.Tasks;
+using ExploringWebAPIDotNet9.Data;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ExploringWebAPIDotNet9.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class StudentController : ControllerBase
+    public class StudentController(StudentDbContext context) : ControllerBase
     {
-
-        static private List<Student> students = new List<Student>
-        {
-            new Student { Id = 1, Name = "John Doe", DateOfBirth = new DateTime(2000, 1, 1), Address = "123 Main St", PhoneNumber = "123-456-7890", Course = "Computer Science", Fees = 1000 },
-            new Student { Id = 2, Name = "Jane Smith", DateOfBirth = new DateTime(1999, 2, 2), Address = "456 Elm St", PhoneNumber = "987-654-3210", Course = "Mathematics", Fees = 1200 },
-            new Student { Id = 3, Name = "Will Turner", DateOfBirth = new DateTime(1999, 2, 2), Address = "786 Elm St", PhoneNumber = "456-789-1400", Course = "History", Fees = 1500 },
-            new Student { Id = 4, Name = "Muhammad Umar", DateOfBirth = new DateTime(1993, 8, 18), Address = "345 Dhoke Paracha", PhoneNumber = "312-4747-481", Course = "Litrature", Fees = 1100 },
-            new Student { Id = 5, Name = "Jack Sparrow", DateOfBirth = new DateTime(1994, 2, 12), Address = "421 Satellite Town", PhoneNumber = "312-4324-567", Course = "Science", Fees = 1400 }
-        };
+        private readonly StudentDbContext _context = context;
 
         [HttpGet]
-        public ActionResult<List<Student>> GetStudents()
+        public async Task<ActionResult<List<Student>>> GetStudents()
         {
-            return Ok(students);
+            return Ok(await _context.Students.ToListAsync());
         }
 
 
         //[HttpGet]
         //[Route("{id:int}")]
         [HttpGet("{id}")]
-        public ActionResult<Student> GetStudentById(int id)
+        public async Task<ActionResult<Student>> GetStudentById(int id)
         {
-            var student = students.FirstOrDefault(s => s.Id == id);
+            //var student = students.FirstOrDefault(s => s.Id == id);       // For static data
+            var student = await _context.Students.FindAsync(id);
 
             if (student is null)
                 return NotFound();
@@ -38,46 +34,53 @@ namespace ExploringWebAPIDotNet9.Controllers
         }
 
         [HttpPost]
-        public ActionResult<Student> CreateStudent(Student student)
+        public async Task<ActionResult<Student>> CreateStudent(Student student)
         {
             if (student == null)
                 return BadRequest("Student cannot be null");
+            
+            // For Static data
+            //student.Id = students.Count > 0 ? students.Max(s => s.Id) + 1 : 1; // Assign a new ID
             //students.Add(student);
-            //return CreatedAtAction(nameof(GetStudentById), new { id = student.Id }, student);
 
-            student.Id = students.Count > 0 ? students.Max(s => s.Id) + 1 : 1; // Assign a new ID
-            students.Add(student);
+            _context.Students.Add(student);
+            await _context.SaveChangesAsync();
+
             return CreatedAtAction(nameof(GetStudentById), new { id = student.Id }, student);
         }
 
         [HttpPut("{id:int}")]
-        public IActionResult UpdateStudent(int id, Student student)
+        public async Task<IActionResult> UpdateStudent(int id, Student student)
         {
-            if (student == null || student.Id != id)
-                return BadRequest("Invalid student data");
-            var existingStudent = students.FirstOrDefault(s => s.Id == id);
-            if (existingStudent == null)
+            var studentObj = await _context.Students.FindAsync(id);
+            if (studentObj is null)
                 return NotFound();
 
-            existingStudent.Name = student.Name;
-            existingStudent.DateOfBirth = student.DateOfBirth;
-            existingStudent.Address = student.Address;
-            existingStudent.PhoneNumber = student.PhoneNumber;
-            existingStudent.Course = student.Course;
-            existingStudent.Fees = student.Fees;
+            studentObj.Name = student.Name;
+            studentObj.DateOfBirth = student.DateOfBirth;
+            studentObj.Address = student.Address;
+            studentObj.PhoneNumber = student.PhoneNumber;
+            studentObj.Course = student.Course;
+            studentObj.Fees = student.Fees;
+
+            await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
         [HttpDelete("{id:int}")]
-        public IActionResult DeleteStudent(int id)
+        public async Task<IActionResult> DeleteStudent(int id)
         {
-            var student = students.FirstOrDefault(s => s.Id == id);
+            var student = await _context.Students.FindAsync(id);
             if (student == null)
                 return NotFound();
-            students.Remove(student);
+
+            _context.Students.Remove(student);
+
+            await _context.SaveChangesAsync();
+
             return NoContent();
         }
-    
+
     }
 }
